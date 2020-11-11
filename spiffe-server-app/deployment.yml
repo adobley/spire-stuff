@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spiffe-server-app-sa
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spiffe-server-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spiffe-server-app
+  template:
+    metadata:
+      labels:
+        app: spiffe-server-app
+    spec:
+      containers:
+        - name: spiffe-server-app
+          image: spiffe-server-app
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+              name: health
+            - containerPort: 8080
+              name: mtls-stuff
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+          volumeMounts:
+              - name: spire-agent-socket
+                mountPath: /run/spire/sockets
+                readOnly: true
+      serviceAccountName: spiffe-server-app-sa
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spiffe-server-app
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: spiffe-server-app
+
